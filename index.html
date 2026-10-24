@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torres de Hanoi - Juego Interactivo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            700: '#0e7490',
+                            900: '#164e63',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-short': 'bounceShort 0.5s ease-in-out 1',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        bounceShort: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(6, 182, 212, 0.4)' },
+                            '100%': { boxShadow: '0 0 20px rgba(6, 182, 212, 0.8)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Disk smoothness and styling */
+        .disk {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            user-select: none;
+            touch-action: none;
+        }
+
+        .disk-selected {
+            transform: translateY(-16px) scale(1.04);
+            box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.6), 0 0 12px rgba(59, 130, 246, 0.8);
+            z-index: 40 !important;
+        }
+
+        .rod-hover {
+            background-color: rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.5);
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Themes */
+        .theme-neon .rod-stem { background: linear-gradient(to top, #1e293b, #38bdf8); }
+        .theme-wood .rod-stem { background: linear-gradient(to top, #78350f, #d97706); }
+        .theme-cyberpunk .rod-stem { background: linear-gradient(to top, #831843, #f43f5e); }
+        
+        .theme-neon .rod-base { background: linear-gradient(to right, #0f172a, #1e293b, #0f172a); border-color: #38bdf8; }
+        .theme-wood .rod-base { background: linear-gradient(to right, #451a03, #78350f, #451a03); border-color: #b45309; }
+        .theme-cyberpunk .rod-base { background: linear-gradient(to right, #4c0519, #831843, #4c0519); border-color: #fb7185; }
+
+        /* Mobile Landscape Optimization */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .landscape-compact-p { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+            .landscape-compact-m { margin-top: 0.25rem !important; margin-bottom: 0.25rem !important; }
+            .landscape-hide { display: none !important; }
+            .rod-container { height: 100% !important; }
+        }
+
+        /* Aspect ratio container wrappers */
+        .ratio-16-10 {
+            aspect-ratio: 16 / 10;
+            max-height: 72vh;
+        }
+        .ratio-21-9 {
+            aspect-ratio: 21 / 9;
+            max-height: 65vh;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-white theme-neon">
+
+    <!-- Landscape Orientation Recommendation Banner -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+    <!-- Compact Navbar Header -->
+    <header class="glass-panel z-30 px-3 py-1.5 shrink-0">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-layer-group text-white text-xs"></i>
+                </div>
+                <h1 class="text-sm font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
+                    Torres de Hanói
+                </h1>
+            </div>
+
+            <!-- Top Controls (Icons only on small screens) -->
+            <div class="flex items-center space-x-1.5 sm:space-x-2">
+                <!-- Theme Selector Dropdown -->
+                <div class="relative group">
+                    <button class="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium transition flex items-center space-x-1 text-slate-300">
+                        <i class="fa-solid fa-palette text-cyan-400 text-xs"></i>
+                        <span class="hidden md:inline">Tema</span>
+                    </button>
+                    <div class="absolute right-0 mt-1 w-32 py-1 glass-panel rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 z-50">
+                        <button onclick="setTheme('neon')" class="w-full text-left px-3 py-1 text-xs text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                            <span>Neón</span>
+                        </button>
+                        <button onclick="setTheme('wood')" class="w-full text-left px-3 py-1 text-xs text-slate-300 hover:bg-amber-500/20 hover:text-amber-300 flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
+                            <span>Madera</span>
+                        </button>
+                        <button onclick="setTheme('cyberpunk')" class="w-full text-left px-3 py-1 text-xs text-slate-300 hover:bg-pink-500/20 hover:text-pink-300 flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span>
+                            <span>Cyberpunk</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Audio Toggle -->
+                <button id="sound-btn" onclick="toggleSound()" class="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium transition text-slate-300">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-cyan-400 text-xs"></i>
+                </button>
+
+                <!-- Rules Button -->
+                <button onclick="openModal('rules-modal')" class="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium transition text-slate-300">
+                    <i class="fa-solid fa-circle-question text-cyan-400 text-xs"></i>
+                </button>
+
+                <!-- Stats Button -->
+                <button onclick="openModal('stats-modal')" class="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium transition text-slate-300">
+                    <i class="fa-solid fa-chart-line text-cyan-400 text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Arena -->
+    <main class="max-w-7xl mx-auto w-full px-2 sm:px-4 py-1 flex-1 flex flex-col justify-between overflow-hidden">
+
+        <!-- Compact Top HUD Bar -->
+        <div class="glass-panel rounded-xl px-3 py-1.5 my-1 shadow-md">
+            <div class="flex items-center justify-between gap-2 text-xs">
+                
+                <!-- Disks Selector -->
+            <div class="flex items-center space-x-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Discos:</span>
+                <input id="disk-slider" type="range" min="3" max="8" value="4" onchange="changeDiskCount(this.value)" class="w-16 sm:w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                <span id="disk-count-display" class="text-cyan-400 font-bold text-xs font-mono">4</span>
+            </div>
+
+            <!-- Moves & Timer HUD -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <!-- Aspect Ratio Selector Toggle -->
+                <div class="flex items-center space-x-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+                    <span class="text-[9px] text-slate-400 font-bold uppercase px-1">Ratio:</span>
+                    <button id="ratio-16-10-btn" onclick="setAspectRatio('16:10')" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500 text-slate-950 transition">16:10</button>
+                    <button id="ratio-21-9-btn" onclick="setAspectRatio('21:9')" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold text-slate-400 hover:text-white transition">21:9</button>
+                </div>
+
+                <div class="flex items-center space-x-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Movs:</span>
+                    <span id="moves-counter" class="font-mono font-bold text-cyan-400 text-sm">0</span>
+                    <span class="text-[10px] text-slate-500 font-mono">/<span id="min-moves">15</span></span>
+                </div>
+
+                <div class="flex items-center space-x-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Tiempo:</span>
+                    <span id="timer-display" class="font-mono font-bold text-amber-400 text-sm">00:00</span>
+                </div>
+
+                <span id="efficiency-tag" class="hidden sm:inline text-xs font-bold text-emerald-400">100% Eficiencia</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Arena Container (Framed within 16:10 / 21:9 aspect ratios) -->
+    <div class="w-full flex-1 flex flex-col items-center justify-center p-1 my-auto overflow-hidden">
+        <div id="aspect-ratio-frame" class="ratio-16-10 w-full max-w-4xl relative flex flex-col justify-between items-center bg-slate-900/50 rounded-2xl border border-slate-800/80 p-2 sm:p-4 shadow-2xl transition-all duration-300">
+            
+            <!-- Dynamic Status Message Overlay -->
+            <div id="game-status-banner" class="absolute top-2 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-slate-800/95 border border-slate-700 text-xs font-medium text-slate-300 shadow-lg flex items-center space-x-2 z-20 transition-all">
+                <i class="fa-solid fa-circle-info text-cyan-400"></i>
+                <span id="status-message">Haz clic en una torre o usa teclas 1, 2, 3 para mover discos</span>
+            </div>
+
+            <!-- Rods Container (3 Towers) -->
+            <div class="w-full h-full flex items-end justify-between gap-2 sm:gap-4 px-2 sm:px-6 pt-8 pb-1">
+                
+                <!-- Rod 0 (Origen / A) -->
+                <div id="rod-0" onclick="handleRodClick(0)" ondragover="handleDragOver(event, 0)" ondragleave="handleDragLeave(0)" ondrop="handleDrop(event, 0)" class="rod-container flex-1 h-full rounded-2xl border border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/70 transition cursor-pointer relative flex flex-col items-center justify-end pb-2 pt-6 group">
+                    <span class="absolute top-1 text-[10px] sm:text-xs font-bold font-mono text-slate-400 group-hover:text-cyan-400 transition">A (Origen)</span>
+                    <div class="rod-stem absolute bottom-2 w-2.5 sm:w-3.5 rounded-t-full h-[80%] z-0"></div>
+                    <div id="disks-rod-0" class="w-full flex flex-col-reverse items-center z-10"></div>
+                    <div class="rod-base w-11/12 h-3 sm:h-4 rounded-xl z-20 border-t shadow-md"></div>
+                </div>
+
+                <!-- Rod 1 (Auxiliar / B) -->
+                <div id="rod-1" onclick="handleRodClick(1)" ondragover="handleDragOver(event, 1)" ondragleave="handleDragLeave(1)" ondrop="handleDrop(event, 1)" class="rod-container flex-1 h-full rounded-2xl border border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/70 transition cursor-pointer relative flex flex-col items-center justify-end pb-2 pt-6 group">
+                    <span class="absolute top-1 text-[10px] sm:text-xs font-bold font-mono text-slate-400 group-hover:text-cyan-400 transition">B (Auxiliar)</span>
+                    <div class="rod-stem absolute bottom-2 w-2.5 sm:w-3.5 rounded-t-full h-[80%] z-0"></div>
+                    <div id="disks-rod-1" class="w-full flex flex-col-reverse items-center z-10"></div>
+                    <div class="rod-base w-11/12 h-3 sm:h-4 rounded-xl z-20 border-t shadow-md"></div>
+                </div>
+
+                <!-- Rod 2 (Destino / C) -->
+                <div id="rod-2" onclick="handleRodClick(2)" ondragover="handleDragOver(event, 2)" ondragleave="handleDragLeave(2)" ondrop="handleDrop(event, 2)" class="rod-container flex-1 h-full rounded-2xl border border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/70 transition cursor-pointer relative flex flex-col items-center justify-end pb-2 pt-6 group">
+                    <span class="absolute top-1 text-[10px] sm:text-xs font-bold font-mono text-slate-400 group-hover:text-cyan-400 transition">C (Destino)</span>
+                    <div class="rod-stem absolute bottom-2 w-2.5 sm:w-3.5 rounded-t-full h-[80%] z-0"></div>
+                    <div id="disks-rod-2" class="w-full flex flex-col-reverse items-center z-10"></div>
+                    <div class="rod-base w-11/12 h-3 sm:h-4 rounded-xl z-20 border-t shadow-md"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Bottom Controls (Compact Row) -->
+        <div class="glass-panel rounded-xl p-2 shrink-0 my-0.5">
+            <div class="flex items-center justify-between gap-1.5">
+                
+                <div class="flex items-center space-x-1.5">
+                    <button onclick="resetGame()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center space-x-1 active:scale-95">
+                        <i class="fa-solid fa-rotate-right text-cyan-400 text-xs"></i>
+                        <span class="hidden sm:inline">Reiniciar</span>
+                    </button>
+                    <button id="undo-btn" onclick="undoMove()" disabled class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center space-x-1 active:scale-95">
+                        <i class="fa-solid fa-rotate-left text-amber-400 text-xs"></i>
+                        <span class="hidden sm:inline">Deshacer</span>
+                    </button>
+                </div>
+
+                <!-- Solver Controls -->
+                <div class="flex items-center space-x-1.5">
+                    <div id="speed-control" class="flex items-center space-x-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-800">
+                        <span class="text-[9px] text-slate-400 font-bold uppercase">Vel:</span>
+                        <input type="range" id="solver-speed" min="1" max="10" value="5" onchange="updateSolverSpeed(this.value)" oninput="updateSolverSpeed(this.value)" class="w-14 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <span id="speed-display" class="text-[10px] font-mono text-cyan-400 font-bold">5x</span>
+                    </div>
+
+                    <button id="auto-solve-btn" onclick="toggleAutoSolver()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-xs transition flex items-center space-x-1 active:scale-95">
+                        <i id="solve-icon" class="fa-solid fa-robot text-xs"></i>
+                        <span id="solve-btn-text">Resolver</span>
+                    </button>
+                </div>
+
+                <button onclick="toggleLogPanel()" class="px-2 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium">
+                    <i class="fa-solid fa-list-ul text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Mov Historial Panel Expandable -->
+            <div id="history-log-panel" class="hidden mt-2 pt-2 border-t border-slate-800">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Historial</span>
+                    <span id="history-count" class="text-[10px] font-mono text-cyan-400">0 pasos</span>
+                </div>
+                <div id="history-list" class="max-h-20 overflow-y-auto font-mono text-[10px] text-slate-300 space-y-0.5 bg-slate-950/60 p-1.5 rounded-md border border-slate-800">
+                    <p class="text-slate-500 italic text-center py-1">Sin movimientos aún</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL: Victory Screen -->
+    <div id="victory-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 hidden">
+        <div class="glass-panel rounded-2xl p-5 max-w-sm w-full text-center shadow-2xl border border-cyan-500/30">
+            <div class="w-14 h-14 mx-auto rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 flex items-center justify-center text-2xl shadow-lg mb-2">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-xl font-extrabold text-white mb-1">¡Victoria!</h2>
+            <p class="text-xs text-slate-300 mb-4">Has resuelto el rompecabezas.</p>
+
+            <div class="grid grid-cols-2 gap-2 mb-4 bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-left text-xs">
+                <div>
+                    <span class="text-[9px] uppercase font-bold text-slate-400 block">Movimientos</span>
+                    <span id="modal-moves" class="text-base font-bold font-mono text-cyan-400">15</span>
+                </div>
+                <div>
+                    <span class="text-[9px] uppercase font-bold text-slate-400 block">Tiempo</span>
+                    <span id="modal-time" class="text-base font-bold font-mono text-amber-400">00:45</span>
+                </div>
+            </div>
+
+            <button onclick="closeModal('victory-modal'); resetGame();" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-lg transition">
+                Jugar de Nuevo
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: Rules & Instructions -->
+    <div id="rules-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 hidden">
+        <div class="glass-panel rounded-2xl p-5 max-w-md w-full shadow-2xl border border-slate-700 relative">
+            <button onclick="closeModal('rules-modal')" class="absolute top-3 right-3 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+
+            <div class="flex items-center space-x-2 mb-3">
+                <i class="fa-solid fa-book-open text-cyan-400 text-lg"></i>
+                <h3 class="text-base font-bold text-white">Reglas del Juego</h3>
+            </div>
+
+            <div class="space-y-2 text-xs text-slate-300 leading-relaxed mb-4">
+                <p>Mueve todos los discos desde la <strong>Torre Origen</strong> hasta la <strong>Torre Destino</strong>:</p>
+                <ul class="space-y-1.5 list-disc pl-4 text-[11px]">
+                    <li>Solo puedes mover 1 disco a la vez.</li>
+                    <li>Toma siempre el disco superior.</li>
+                    <li><strong>No puedes poner un disco más grande sobre uno más pequeño.</strong></li>
+                </ul>
+            </div>
+
+            <button onclick="closeModal('rules-modal')" class="w-full py-2 rounded-xl bg-slate-800 text-white font-bold text-xs">
+                ¡Entendido!
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: Player Statistics -->
+    <div id="stats-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 hidden">
+            <div class="glass-panel rounded-2xl p-5 max-w-xs w-full shadow-2xl border border-slate-700 relative">
+                <button onclick="closeModal('stats-modal')" class="absolute top-3 right-3 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+
+                <div class="flex items-center space-x-2 mb-3">
+                    <i class="fa-solid fa-trophy text-amber-400 text-lg"></i>
+                    <h3 class="text-base font-bold text-white">Estadísticas</h3>
+                </div>
+
+                <div class="space-y-2 mb-4 text-xs">
+                    <div class="flex justify-between items-center p-2 bg-slate-900/60 rounded-lg">
+                        <span class="text-slate-400">Partidas Ganadas</span>
+                        <span id="stats-wins" class="font-bold font-mono text-cyan-400">0</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-slate-900/60 rounded-lg">
+                        <span class="text-slate-400">Mejor Tiempo (4 discos)</span>
+                        <span id="stats-best-time" class="font-bold font-mono text-amber-400">--:--</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-slate-900/60 rounded-lg">
+                        <span class="text-slate-400">Partidas Perfectas</span>
+                        <span id="stats-perfect" class="font-bold font-mono text-emerald-400">0</span>
+                    </div>
+                </div>
+
+                <button onclick="clearStats()" class="w-full py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/30">
+                    Reiniciar Estadísticas
+                </button>
+            </div>
+        </div>
+
+    <script>
+        /**
+         * Web Audio API Synthesizer for self-contained, realistic audio effects.
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) this.ctx = new AudioContext();
+                }
+            }
+
+            playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.1) {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {
+                    // Ignore sound errors on un-interacted DOMs
+                }
+            }
+
+            playDiskPick(diskSize) {
+                // Pitch based on disk size (smaller disk = higher pitch)
+                const pitch = 300 + (10 - diskSize) * 60;
+                this.playTone(pitch, 'sine', 0.1, 0.12);
+            }
+
+            playDiskDrop(diskSize) {
+                const pitch = 200 + (10 - diskSize) * 40;
+                this.playTone(pitch, 'triangle', 0.18, 0.15);
+            }
+
+            playError() {
+                this.playTone(130, 'sawtooth', 0.2, 0.15);
+            }
+
+            playVictory() {
+                if (!this.enabled) return;
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C major chord
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playTone(freq, 'sine', 0.4, 0.2);
+                    }, idx * 120);
+                });
+            }
+        }
+
+        const sounds = new SoundEngine();
+
+        function toggleSound() {
+            sounds.enabled = !sounds.enabled;
+            const icon = document.getElementById('sound-icon');
+            if (sounds.enabled) {
+                icon.className = 'fa-solid fa-volume-high text-cyan-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+            }
+        }
+
+        // Game State Variables
+        let diskCount = 4;
+        let rods = [[], [], []];
+        let selectedRod = null;
+        let moveCount = 0;
+        let minMoves = 15;
+        let historyStack = [];
+        let moveLog = [];
+        let gameTimer = null;
+        let secondsElapsed = 0;
+        let isGameRunning = false;
+        let isSolved = false;
+        
+        // Auto-Solver Variables
+        let isAutoSolving = false;
+        let solverQueue = [];
+        let solverInterval = null;
+        let solverSpeed = 5; // Level 1 to 10
+
+        // Color Palettes for Disks (Size 1 to 8)
+        const diskPalettes = {
+            neon: [
+                'from-rose-500 to-red-600 border-rose-400',
+                'from-orange-500 to-amber-600 border-orange-400',
+                'from-yellow-400 to-amber-500 border-yellow-300',
+                'from-emerald-400 to-green-600 border-emerald-300',
+                'from-teal-400 to-cyan-600 border-teal-300',
+                'from-cyan-500 to-blue-600 border-cyan-300',
+                'from-indigo-500 to-violet-600 border-indigo-400',
+                'from-purple-500 to-fuchsia-600 border-purple-400'
+            ],
+            wood: [
+                'from-amber-700 to-amber-900 border-amber-600',
+                'from-amber-600 to-amber-800 border-amber-500',
+                'from-amber-500 to-amber-700 border-amber-400',
+                'from-yellow-600 to-amber-700 border-yellow-500',
+                'from-amber-700 to-amber-900 border-amber-600',
+                'from-amber-800 to-stone-900 border-amber-700',
+                'from-amber-600 to-amber-800 border-amber-500',
+                'from-yellow-700 to-amber-900 border-yellow-600'
+            ],
+            cyberpunk: [
+                'from-fuchsia-500 to-pink-600 border-fuchsia-300',
+                'from-purple-600 to-indigo-700 border-purple-400',
+                'from-cyan-400 to-teal-500 border-cyan-200',
+                'from-rose-500 to-pink-700 border-rose-300',
+                'from-violet-500 to-purple-700 border-violet-300',
+                'from-sky-400 to-blue-600 border-sky-300',
+                'from-emerald-400 to-teal-600 border-emerald-300',
+                'from-fuchsia-600 to-purple-900 border-fuchsia-400'
+            ]
+        };
+
+        let currentTheme = 'neon';
+        let currentAspectRatio = '16:10';
+
+        // Initialize Game on page load
+        window.onload = function() {
+            initGame();
+            setupKeyboardListeners();
+            loadStats();
+        };
+
+        function setAspectRatio(ratio) {
+            currentAspectRatio = ratio;
+            const frame = document.getElementById('aspect-ratio-frame');
+            const btn1610 = document.getElementById('ratio-16-10-btn');
+            const btn219 = document.getElementById('ratio-21-9-btn');
+
+            if (ratio === '16:10') {
+                frame.className = 'ratio-16-10 w-full max-w-4xl relative flex flex-col justify-between items-center bg-slate-900/50 rounded-2xl border border-slate-800/80 p-2 sm:p-4 shadow-2xl transition-all duration-300';
+                btn1610.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500 text-slate-950 transition';
+                btn219.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold text-slate-400 hover:text-white transition';
+            } else if (ratio === '21:9') {
+                frame.className = 'ratio-21-9 w-full max-w-5xl relative flex flex-col justify-between items-center bg-slate-900/50 rounded-2xl border border-slate-800/80 p-2 sm:p-4 shadow-2xl transition-all duration-300';
+                btn219.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500 text-slate-950 transition';
+                btn1610.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold text-slate-400 hover:text-white transition';
+            }
+
+            renderDisks();
+        }
+
+        function initGame() {
+            stopTimer();
+            stopAutoSolver();
+
+            moveCount = 0;
+            secondsElapsed = 0;
+            isGameRunning = false;
+            isSolved = false;
+            selectedRod = null;
+            historyStack = [];
+            moveLog = [];
+
+            // Minimum moves formula: 2^n - 1
+            minMoves = Math.pow(2, diskCount) - 1;
+
+            // Initialize rods: Rod 0 gets disks [diskCount, ..., 2, 1], Rod 1 and 2 are empty
+            rods = [[], [], []];
+            for (let i = diskCount; i >= 1; i--) {
+                rods[0].push(i);
+            }
+
+            updateUI();
+            updateStatusMessage('Haz clic en una torre o usa teclas 1, 2, 3 para mover discos');
+        }
+
+        function renderDisks() {
+            for (let r = 0; r < 3; r++) {
+                const rodEl = document.getElementById(`disks-rod-${r}`);
+                rodEl.innerHTML = '';
+
+                rods[r].forEach((diskSize, index) => {
+                    const isTopDisk = (index === rods[r].length - 1);
+                    const isSelected = (selectedRod === r && isTopDisk);
+
+                    const widthPercent = 25 + (diskSize / diskCount) * 70;
+                    const colors = diskPalettes[currentTheme][(diskSize - 1) % diskPalettes[currentTheme].length];
+
+                    const diskDiv = document.createElement('div');
+                    const diskHeightClass = currentAspectRatio === '21:9' ? 'h-3.5 sm:h-4 md:h-5' : 'h-4 sm:h-5 md:h-6';
+                    diskDiv.className = `disk relative ${diskHeightClass} rounded-md sm:rounded-lg bg-gradient-to-r ${colors} border shadow flex items-center justify-center text-white font-bold font-mono text-[10px] sm:text-xs my-0.5 cursor-pointer hover:brightness-110 ${isSelected ? 'disk-selected' : ''}`;
+                    diskDiv.style.width = `${widthPercent}%`;
+                    diskDiv.innerText = diskSize;
+
+                    if (isTopDisk && !isAutoSolving) {
+                        diskDiv.setAttribute('draggable', 'true');
+                        diskDiv.ondragstart = (e) => handleDragStart(e, r);
+                    }
+
+                    rodEl.appendChild(diskDiv);
+                });
+            }
+        }
+
+        function runSolverStep() {
+            if (!isAutoSolving) return;
+
+            if (solverQueue.length === 0) {
+                stopAutoSolver();
+                return;
+            }
+
+            const move = solverQueue.shift();
+            executeMove(move.from, move.to);
+
+            // Solver speed step delay mapping (1x -> 900ms, 10x -> 90ms)
+            const delay = Math.max(90, 1000 - solverSpeed * 90);
+            solverInterval = setTimeout(runSolverStep, delay);
+        }
+
+        function updateUI() {
+            // Helper to safely set text content
+            const setTxt = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = text;
+            };
+
+            // Update move counters and theoretical min
+            setTxt('disk-count-display', diskCount);
+            setTxt('moves-counter', moveCount);
+            setTxt('min-moves', minMoves);
+            setTxt('min-moves-detail', `${minMoves} movs`);
+
+            const undoBtn = document.getElementById('undo-btn');
+            if (undoBtn) undoBtn.disabled = (historyStack.length === 0 || isAutoSolving);
+
+            // Update Efficiency indicator
+            const eff = moveCount === 0 ? 100 : Math.max(0, Math.round((minMoves / moveCount) * 100));
+            const effTag = document.getElementById('efficiency-tag');
+            if (effTag) {
+                effTag.innerText = `${eff}% Eficiencia`;
+                if (eff === 100) effTag.className = 'hidden sm:inline text-xs font-bold text-emerald-400';
+                else if (eff >= 75) effTag.className = 'hidden sm:inline text-xs font-bold text-cyan-400';
+                else effTag.className = 'hidden sm:inline text-xs font-bold text-amber-400';
+            }
+
+            // Highlight selected rod container
+            for (let r = 0; r < 3; r++) {
+                const rodContainer = document.getElementById(`rod-${r}`);
+                if (rodContainer) {
+                    if (selectedRod === r) {
+                        rodContainer.classList.add('border-cyan-500/50', 'bg-cyan-500/5');
+                    } else {
+                        rodContainer.classList.remove('border-cyan-500/50', 'bg-cyan-500/5');
+                    }
+                }
+            }
+
+            renderDisks();
+            renderHistoryLog();
+        }
+
+        function updateStatusMessage(msg, isError = false) {
+            const banner = document.getElementById('game-status-banner');
+            const statusTxt = document.getElementById('status-message');
+            statusTxt.innerText = msg;
+
+            if (isError) {
+                banner.className = 'absolute top-2 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-red-900/80 border border-red-500 text-xs sm:text-sm font-medium text-red-200 shadow-lg flex items-center space-x-2 z-10 transition-all animate-bounceShort';
+            } else {
+                banner.className = 'absolute top-2 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 text-xs sm:text-sm font-medium text-slate-300 shadow-lg flex items-center space-x-2 z-10 transition-all';
+            }
+        }
+
+        // Interaction Handler: Rod Click
+        function handleRodClick(rodIndex) {
+            if (isAutoSolving || isSolved) return;
+
+            // Start timer on first move attempt
+            if (!isGameRunning) startTimer();
+
+            // Case 1: No rod selected yet -> Select source rod
+            if (selectedRod === null) {
+                if (rods[rodIndex].length === 0) {
+                    sounds.playError();
+                    updateStatusMessage('La torre seleccionada está vacía', true);
+                    return;
+                }
+                selectedRod = rodIndex;
+                const topDisk = rods[rodIndex][rods[rodIndex].length - 1];
+                sounds.playDiskPick(topDisk);
+                updateStatusMessage(`Disco ${topDisk} seleccionado. Elige torre destino.`);
+                updateUI();
+            } 
+            // Case 2: Clicked same rod -> Deselect
+            else if (selectedRod === rodIndex) {
+                selectedRod = null;
+                updateStatusMessage('Selección cancelada');
+                updateUI();
+            } 
+            // Case 3: Try to move from selectedRod to target rodIndex
+            else {
+                executeMove(selectedRod, rodIndex);
+            }
+        }
+
+        // Validate and Execute Move
+        function executeMove(fromRod, toRod) {
+            const sourceDisk = rods[fromRod][rods[fromRod].length - 1];
+            const targetDisk = rods[toRod][rods[toRod].length - 1];
+
+            // Validation Rule: Bigger disk cannot be placed on smaller disk
+            if (targetDisk && sourceDisk > targetDisk) {
+                sounds.playError();
+                updateStatusMessage(`¡Inválido! Disco ${sourceDisk} no cabe sobre disco ${targetDisk}`, true);
+                selectedRod = null;
+                updateUI();
+                return false;
+            }
+
+            // Save state for Undo
+            historyStack.push({
+                rods: JSON.parse(JSON.stringify(rods)),
+                moveCount: moveCount
+            });
+
+            // Perform disk move
+            rods[fromRod].pop();
+            rods[toRod].push(sourceDisk);
+            moveCount++;
+
+            // Record Log
+            const rodNames = ['Origen (A)', 'Auxiliar (B)', 'Destino (C)'];
+            moveLog.unshift(`Movimiento ${moveCount}: Disco ${sourceDisk} de ${rodNames[fromRod]} ➔ ${rodNames[toRod]}`);
+
+            sounds.playDiskDrop(sourceDisk);
+            selectedRod = null;
+            updateStatusMessage(`Disco ${sourceDisk} movido con éxito`);
+
+            updateUI();
+            checkVictoryCondition();
+            return true;
+        }
+
+        // Keyboard Navigation Shortcuts (Keys 1, 2, 3 or A, B, C)
+        function setupKeyboardListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (isAutoSolving) return;
+
+                if (e.key === '1' || e.key.toLowerCase() === 'a') handleRodClick(0);
+                if (e.key === '2' || e.key.toLowerCase() === 'b') handleRodClick(1);
+                if (e.key === '3' || e.key.toLowerCase() === 'c') handleRodClick(2);
+                if (e.key === 'z' && (e.ctrlKey || e.metaKey)) undoMove();
+            });
+        }
+
+        // Drag & Drop HTML5 Event Handlers
+        let draggedFromRod = null;
+
+        function handleDragStart(e, rodIndex) {
+            if (isAutoSolving || isSolved) return;
+            draggedFromRod = rodIndex;
+            e.dataTransfer.setData('text/plain', rodIndex);
+            e.dataTransfer.effectAllowed = 'move';
+            selectedRod = rodIndex;
+            const topDisk = rods[rodIndex][rods[rodIndex].length - 1];
+            sounds.playDiskPick(topDisk);
+            updateUI();
+        }
+
+        function handleDragOver(e, rodIndex) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const rodEl = document.getElementById(`rod-${rodIndex}`);
+            rodEl.classList.add('rod-hover');
+        }
+
+        function handleDragLeave(rodIndex) {
+            const rodEl = document.getElementById(`rod-${rodIndex}`);
+            rodEl.classList.remove('rod-hover');
+        }
+
+        function handleDrop(e, targetRod) {
+            e.preventDefault();
+            handleDragLeave(targetRod);
+            if (draggedFromRod !== null && draggedFromRod !== targetRod) {
+                executeMove(draggedFromRod, targetRod);
+            } else {
+                selectedRod = null;
+                updateUI();
+            }
+            draggedFromRod = null;
+        }
+
+        function undoMove() {
+            if (historyStack.length === 0 || isAutoSolving) return;
+
+            const lastState = historyStack.pop();
+            rods = lastState.rods;
+            moveCount = lastState.moveCount;
+            if (moveLog.length > 0) moveLog.shift();
+
+            selectedRod = null;
+            updateStatusMessage('Último movimiento deshecho');
+            updateUI();
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        function changeDiskCount(newVal) {
+            diskCount = parseInt(newVal);
+            initGame();
+        }
+
+        function startTimer() {
+            if (isGameRunning) return;
+            isGameRunning = true;
+            secondsElapsed = 0;
+            gameTimer = setInterval(() => {
+                secondsElapsed++;
+                const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            isGameRunning = false;
+            if (gameTimer) {
+                clearInterval(gameTimer);
+                gameTimer = null;
+            }
+        }
+
+        // Recursive Towers of Hanoi Solver Algorithm
+        function generateHanoiMoves(n, source, target, auxiliary) {
+            if (n === 1) {
+                solverQueue.push({ from: source, to: target });
+                return;
+            }
+            generateHanoiMoves(n - 1, source, auxiliary, target);
+            solverQueue.push({ from: source, to: target });
+            generateHanoiMoves(n - 1, auxiliary, target, source);
+        }
+
+        function toggleAutoSolver() {
+            if (isAutoSolving) {
+                stopAutoSolver();
+                updateStatusMessage('Auto-resolución pausada');
+            } else {
+                startAutoSolver();
+            }
+        }
+
+        function startAutoSolver() {
+            if (isSolved) resetGame();
+
+            isAutoSolving = true;
+            solverQueue = [];
+            generateHanoiMoves(diskCount, 0, 2, 1);
+
+            document.getElementById('solve-btn-text').innerText = 'Detener';
+            document.getElementById('solve-icon').className = 'fa-solid fa-pause animate-spin';
+
+            updateStatusMessage('🤖 Auto-resolviendo paso a paso...');
+            
+            if (!isGameRunning) startTimer();
+
+            runSolverStep();
+        }
+
+        function stopAutoSolver() {
+            isAutoSolving = false;
+            if (solverInterval) clearTimeout(solverInterval);
+            document.getElementById('solve-btn-text').innerText = 'Auto Resolver';
+            document.getElementById('solve-icon').className = 'fa-solid fa-robot';
+            updateUI();
+        }
+
+        function updateSolverSpeed(val) {
+            solverSpeed = parseInt(val);
+            document.getElementById('speed-display').innerText = `${solverSpeed}x`;
+        }
+
+        function checkVictoryCondition() {
+            // Win condition: All disks moved to Rod 2 (Destino)
+            if (rods[2].length === diskCount) {
+                isSolved = true;
+                stopTimer();
+                sounds.playVictory();
+                triggerConfetti();
+                saveStats();
+
+                // Prepare Victory Modal details
+                const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+                document.getElementById('modal-moves').innerText = moveCount;
+                document.getElementById('modal-min-moves').innerText = minMoves;
+                document.getElementById('modal-time').innerText = `${mins}:${secs}`;
+
+                const efficiency = Math.max(0, Math.round((minMoves / moveCount) * 100));
+                document.getElementById('modal-rating').innerText = `${efficiency}%`;
+
+                // Calculate Star Rating
+                const starContainer = document.getElementById('star-rating');
+                if (moveCount === minMoves) {
+                    starContainer.innerHTML = '<i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>';
+                } else if (moveCount <= minMoves * 1.5) {
+                    starContainer.innerHTML = '<i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>';
+                } else {
+                    starContainer.innerHTML = '<i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>';
+                }
+
+                setTimeout(() => openModal('victory-modal'), 500);
+            }
+        }
+
+        // Stats Storage in LocalStorage
+        function loadStats() {
+            const wins = localStorage.getItem('hanoi_wins') || '0';
+            const bestTime = localStorage.getItem('hanoi_best_4') || '--:--';
+            const perfect = localStorage.getItem('hanoi_perfect') || '0';
+
+            document.getElementById('stats-wins').innerText = wins;
+            document.getElementById('stats-best-time').innerText = bestTime;
+            document.getElementById('stats-perfect').innerText = perfect;
+        }
+
+        function saveStats() {
+            if (isAutoSolving) return; // Do not record auto solver wins
+            let wins = parseInt(localStorage.getItem('hanoi_wins') || '0') + 1;
+            let perfect = parseInt(localStorage.getItem('hanoi_perfect') || '0');
+
+            if (moveCount === minMoves) perfect++;
+
+            localStorage.setItem('hanoi_wins', wins);
+            localStorage.setItem('hanoi_perfect', perfect);
+
+            if (diskCount === 4) {
+                const currentBest = localStorage.getItem('hanoi_best_4');
+                const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+                const timeStr = `${mins}:${secs}`;
+                
+                if (!currentBest || timeStr < currentBest) {
+                    localStorage.getItem('hanoi_best_4', timeStr);
+                }
+            }
+            loadStats();
+        }
+
+        function clearStats() {
+            localStorage.removeItem('hanoi_wins');
+            localStorage.removeItem('hanoi_best_4');
+            localStorage.removeItem('hanoi_perfect');
+            loadStats();
+            updateStatusMessage('Estadísticas reiniciadas');
+        }
+
+        function setTheme(themeName) {
+            currentTheme = themeName;
+            document.body.className = `bg-slate-950 text-slate-100 min-h-full font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-white theme-${themeName}`;
+            updateUI();
+        }
+
+        function toggleLogPanel() {
+            const panel = document.getElementById('history-log-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function renderHistoryLog() {
+            const container = document.getElementById('history-list');
+            document.getElementById('history-count').innerText = `${moveLog.length} pasos`;
+
+            if (moveLog.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 italic text-center py-2">Sin movimientos registrados aún</p>';
+                return;
+            }
+
+            container.innerHTML = moveLog.map((log) => `<div class="py-0.5 border-b border-slate-800/40">${log}</div>`).join('');
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // Canvas Confetti Celebration Animation
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#06b6d4', '#3b82f6', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6'];
+
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 18,
+                    vy: (Math.random() - 0.8) * 16,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rSpeed: (Math.random() - 0.5) * 10,
+                    opacity: 1
+                });
+            }
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.25; // Gravity
+                    p.opacity -= 0.008;
+                    p.rotation += p.rSpeed;
+
+                    if (p.opacity > 0) {
+                        alive = true;
+                        ctx.save();
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate((p.rotation * Math.PI) / 180);
+                        ctx.globalAlpha = Math.max(0, p.opacity);
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                        ctx.restore();
+                    }
+                });
+
+                if (alive) {
+                    requestAnimationFrame(animateConfetti);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            animateConfetti();
+        }
+    </script>
+</body>
+</html>
